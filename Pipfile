@@ -16,8 +16,9 @@ django-heroku = "*"
 django-rest-api = "*"
 
 [dev-packages]
-pycodestyle = "*"
 autopep8 = "*"
+pylint = "*"
+pycodestyle = "*"
 
 [requires]
 python_version = "3.7"

@@ -8,7 +8,6 @@
 # Icon must end with two \r
 Icon
 
-
 # Thumbnails
 ._*
 
@@ -87,3 +86,8 @@ local_settings.py
 
 .env
 db.sqlite3
+
+
+.vscode
+bin
+include
