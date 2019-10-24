@@ -89,6 +89,7 @@ def say(request):
 @api_view(["GET"])
 def get_rooms(request):
     # IMPLEMENT
-    all_rooms = list(Room.objects.values())
+    all_rooms = list(Room.objects.all().order_by('id').values())
+
 
     return JsonResponse({"room": all_rooms}, safe=True, status=200)
