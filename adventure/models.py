@@ -7,45 +7,45 @@ import uuid
 
 
 class Room(models.Model):
-    title = models.CharField(max_length=50, default="DEFAULT TITLE")
+    row = models.IntegerField(default=0)
+    column = models.IntegerField(default=0)
+    title = models.CharField(max_length=50, default="DEFAULT TITLE", null=True)
     description = models.CharField(
-        max_length=500, default="DEFAULT DESCRIPTION")
-    n_to = models.IntegerField(default=0)
-    s_to = models.IntegerField(default=0)
-    e_to = models.IntegerField(default=0)
-    w_to = models.IntegerField(default=0)
-    x = models.IntegerField(default=0)
-    y = models.IntegerField(default=0)
+        max_length=500, default="DEFAULT DESCRIPTION", null=True)
+    wall_n = models.BooleanField(default=True)
+    wall_s = models.BooleanField(default=True)
+    wall_e = models.BooleanField(default=True)
+    wall_w = models.BooleanField(default=True)
 
-    def connectRooms(self, destinationRoom, direction):
-        destinationRoomID = destinationRoom.id
-        try:
-            destinationRoom = Room.objects.get(id=destinationRoomID)
-        except Room.DoesNotExist:
-            print("That room does not exist")
+    def knock_down_wall(self, other, wall):
+        # A wall separates a pair of cells in the N-S or W-E directions.
+        wall_pairs = {'N': 'S', 'S': 'N', 'E': 'W', 'W': 'E'}
+        if wall == 'N':
+            self.wall_n = False
+            other.wall_s = False
+        elif wall == 'S':
+            self.wall_s = False
+            other.wall_n = False
+        elif wall == 'E':
+            self.wall_e = False
+            other.wall_w = False
+        elif wall == 'W':
+            self.wall_w = False
+            other.wall_e = False
+        self.save()
+        other.save()
+
+    def has_all_walls(self):
+        if self.wall_n and self.wall_s and self.wall_e and self.wall_w:
+            return True
         else:
-            if direction == "n":
-                self.n_to = destinationRoomID
-            elif direction == "s":
-                self.s_to = destinationRoomID
-            elif direction == "e":
-                self.e_to = destinationRoomID
-            elif direction == "w":
-                self.w_to = destinationRoomID
-            else:
-                print("Invalid direction")
-                return
-            self.save()
+            return False
 
     def playerNames(self, currentPlayerID):
-        return [p.user.username for p in Player.objects.filter(currentRoom=self.id) if p.id != int(currentPlayerID)]
+        return [p.user.username for p in Player.objects.all()]
 
     def playerUUIDs(self, currentPlayerID):
         return [p.uuid for p in Player.objects.filter(currentRoom=self.id) if p.id != int(currentPlayerID)]
-
-    def rooms(self):
-        print(self)
-        return "Supposed to return all rooms"
 
 
 class Player(models.Model):

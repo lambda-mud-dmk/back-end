@@ -1,66 +1,83 @@
-from django.contrib.auth.models import User
-from adventure.models import Player, Room
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.decorators import api_view
+from adventure.models import Room, Player
+from django.http import JsonResponse
+import json
 import random
 
-Room.objects.all().delete()
-opposite_directions = {"n": "s", "s": "n", "e": "w", "w": "e"}
-number_rooms = 100
 
-r_outside = Room(title="Outside Cave Entrance",
-                 description="North of you, the cave mount beckons", x=0, y=0)
+class Maze:
+    def __init__(self, number_rows, number_columns, ix=0, iy=0):
+        self.number_rows, self.number_columns = number_rows, number_columns
+        self.ix, self.iy = ix, iy
+        Room.objects.all().delete()
+        self.maze_map = [[Room(row=x, column=y)
+                          for y in range(number_columns)] for x in range(number_rows)]
+        for x in range(self.number_rows):
+            for y in range(self.number_columns):
+                self.maze_map[x][y].save()
 
-r_foyer = Room(
-    title="Foyer", description="""Dim light filters in from the south.""", x=1, y=0)
+    def room_at(self, x, y):
+        return self.maze_map[x][y]
 
-r_outside.save()
-r_foyer.save()
+    def find_valid_neighbours(self, room):
+        delta = [('W', (0, -1)),
+                 ('E', (0, 1)),
+                 ('S', (1, 0)),
+                 ('N', (-1, 0))]
+        neighbours = []
+        for direction, (dx, dy) in delta:
+            x2, y2 = room.row + dx, room.column + dy
+            if (0 <= x2 < self.number_rows) and (0 <= y2 < self.number_columns):
+                neighbour = self.room_at(x2, y2)
+                if neighbour.has_all_walls():
+                    neighbours.append((direction, neighbour))
+        return neighbours
 
-# Link rooms together
-r_outside.connectRooms(r_foyer, "e")
-r_foyer.connectRooms(r_outside, "w")
-previous_room = r_foyer
-# Generate the rest of the rooms randomly
-for n in range(number_rooms - 2):
-    direction = None
-    new_room = Room(title="DEFAULT TITLE",
-                    description="DEFAULT DESCRIPTION")
-    while direction is None:
-        direction = random.choice(list(opposite_directions.keys()))
-        if direction == "n" and previous_room.n_to is not 0 or direction == "n" and previous_room.y is 9:
-            direction = None
-        elif direction == "s" and previous_room.s_to is not 0 or direction == "s" and previous_room.y is 0:
-            direction = None
-        elif direction == "e" and previous_room.e_to is not 0 or direction == "e" and previous_room.x is 9:
-            direction = None
-        elif direction == "w" and previous_room.w_to is not 0 or direction == "w" and previous_room.x is 0:
-            direction = None
-        if direction is not None:
-            new_room.save()
-            previous_room.connectRooms(new_room, direction)
-            new_room.connectRooms(
-                previous_room, opposite_directions[direction])
-            if direction == "n":
-                new_room.x = previous_room.x
-                new_room.y = previous_room.y + 1
-            elif direction == "s":
-                new_room.x = previous_room.x
-                new_room.y = previous_room.y - 1
-            elif direction == "e":
-                new_room.x = previous_room.x + 1
-                new_room.y = previous_room.y
-            elif direction == "w":
-                new_room.x = previous_room.x - 1
-                new_room.y = previous_room.y
+    def create_maze(self):
+        n = self.number_rows * self.number_columns
+        room_stack = []
+        current_room = self.room_at(self.ix, self.iy)
+        visited_rooms = 1
 
-            previous_room.save()
-            new_room.save()
-            previous_room = new_room
+        while visited_rooms < n:
+            neighbours = self.find_valid_neighbours(current_room)
+            if not neighbours:
+                current_room = room_stack.pop()
+                continue
+
+            direction, next_room = random.choice(neighbours)
+            current_room.knock_down_wall(next_room, direction)
+            room_stack.append(current_room)
+            current_room = next_room
+            visited_rooms += 1
+
+    def toList(self):
+        maze = []
+        rooms = Room.objects.all()
+        for room in rooms:
+            maze.append({
+                'row': room.row,
+                'column': room.column,
+                'wall_n': room.wall_n,
+                'wall_s': room.wall_s,
+                'wall_e': room.wall_e,
+                'wall_w': room.wall_w
+            })
+        return maze
 
 
+rows = 10
+columns = 10
+maze = Maze(rows, columns)
+maze.create_maze()
 players = Player.objects.all()
 for p in players:
-    p.currentRoom = r_outside.id
+    p.currentRoom = Room.objects.all().first().id
     p.save()
 
-rooms = Room.objects.all()
-print(f"Generated {len(rooms)} rooms")
+print({
+    'rows': rows,
+    'columns': columns,
+    'maze': maze.toList()
+})
