@@ -20,7 +20,7 @@ def initialize(request):
     player_id = player.id
     uuid = player.uuid
     room = player.room()
-    players = room.playerNames(player_id)
+    players = []
     return JsonResponse({'uuid': uuid, 'name': player.user.username, 'title': room.title, 'description': room.description, 'players': players, 'room_id': room.id}, safe=True)
 
 
@@ -34,32 +34,50 @@ def move(request):
     player_uuid = player.uuid
     data = json.loads(request.body)
     direction = data['direction']
-    room = player.room()
-    nextRoomID = None
+    current_room = Room.objects.get(pk=player.currentRoom)
+    nextRoom_coordinates = (-1, -1)
     if direction == "n":
-        nextRoomID = room.n_to
+        # going up one row
+        if not current_room.wall_n:
+            nextRoom_coordinates = (current_room.row-1, current_room.column)
     elif direction == "s":
-        nextRoomID = room.s_to
+        # going down one row
+        if not current_room.wall_s:
+            nextRoom_coordinates = (current_room.row+1, current_room.column)
     elif direction == "e":
-        nextRoomID = room.e_to
+        # move forward one column
+        if not current_room.wall_e:
+            nextRoom_coordinates = (current_room.row, current_room.column+1)
     elif direction == "w":
-        nextRoomID = room.w_to
-    if nextRoomID is not None and nextRoomID > 0:
-        nextRoom = Room.objects.get(id=nextRoomID)
-        player.currentRoom = nextRoomID
+        # move back one column
+        if not current_room.wall_w:
+            nextRoom_coordinates = (current_room.row, current_room.column-1)
+    try:
+        next_room = Room.objects.get(
+            row=nextRoom_coordinates[0], column=nextRoom_coordinates[1])
+        player.currentRoom = next_room.id
         player.save()
-        players = nextRoom.playerNames(player_id)
-        currentPlayerUUIDs = room.playerUUIDs(player_id)
-        nextPlayerUUIDs = nextRoom.playerUUIDs(player_id)
-        # for p_uuid in currentPlayerUUIDs:
-        #     pusher.trigger(f'p-channel-{p_uuid}', u'broadcast', {'message':f'{player.user.username} has walked {dirs[direction]}.'})
-        # for p_uuid in nextPlayerUUIDs:
-        #     pusher.trigger(f'p-channel-{p_uuid}', u'broadcast', {'message':f'{player.user.username} has entered from the {reverse_dirs[direction]}.'})
-        return JsonResponse({'name': player.user.username, 'title': nextRoom.title, 'description': nextRoom.description, 'players': players, 'error_msg': "",  'room_id': room.id}, safe=True)
-    else:
-        players = room.playerNames(player_id)
-        return JsonResponse({'name': player.user.username, 'title': room.title, 'description': room.description, 'players': players, 'error_msg': "You cannot move that way.", 'room_id': room.id}, safe=True)
-
+        players = []
+        return JsonResponse(
+            {
+                'name': player.user.username,
+                'row': next_room.row,
+                'column': next_room.column,
+                'players': players,
+                'room_id': next_room.id,
+                'error_msg': ""
+            }, safe=True)
+    except Room.DoesNotExist:
+        players = []
+        return JsonResponse(
+            {
+                'name': player.user.username,
+                'row': current_room.row,
+                'column': current_room.column,
+                'players': players,
+                'room_id': current_room.id,
+                'error_msg': "You cannot move that way."
+            }, safe=True)
 
 @csrf_exempt
 @api_view(["POST"])
@@ -71,11 +89,6 @@ def say(request):
 @api_view(["GET"])
 def get_rooms(request):
     # IMPLEMENT
-    all_rooms = []
-    rooms = Room.objects.all().order_by('id')
-
-    for i in rooms:
-        all_rooms.append({"id": i.id, "title": i.title, "n_to": i.n_to,
-                          "s_to": i.s_to, "e_to": i.e_to, "w_to": i.w_to, "x": i.x, "y": i.y})
+    all_rooms = list(Room.objects.values())
 
     return JsonResponse({"room": all_rooms}, safe=True, status=200)
