@@ -76,6 +76,6 @@ def get_rooms(request):
 
     for i in rooms:
         all_rooms.append({"id": i.id, "title": i.title, "n_to": i.n_to,
-                          "s_to": i.s_to, "e_to": i.e_to, "w_to": i.w_to})
+                          "s_to": i.s_to, "e_to": i.e_to, "w_to": i.w_to, "x": i.x, "y": i.y})
 
     return JsonResponse({"room": all_rooms}, safe=True, status=200)
