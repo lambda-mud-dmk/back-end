@@ -72,7 +72,7 @@ def say(request):
 def get_rooms(request):
     # IMPLEMENT
     all_rooms = []
-    rooms = Room.objects.all()
+    rooms = Room.objects.all().order_by('id')
 
     for i in rooms:
         all_rooms.append({"id": i.id, "title": i.title, "n_to": i.n_to,
